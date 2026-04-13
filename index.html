@@ -684,7 +684,7 @@ function doTranslate() {
     if (!res) return;
 
     document.getElementById('resultText').textContent = res.text;
-    document.getElementById('resultText').style.display = '';
+    document.getElementById('resultText').style.display = 'block';
     document.getElementById('moodEmoji').textContent = res.mood.e;
     document.getElementById('moodVal').textContent   = res.mood.t;
     document.getElementById('moodBadge').classList.add('show');
