@@ -325,6 +325,62 @@
       padding: 20px 0 32px;
     }
 
+    /* ===== 逆翻訳（人間語→猫語）セクション ===== */
+    .reverse-section {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px dashed var(--border);
+    }
+
+    .reverse-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .reverse-label {
+      font-size: 12px;
+      color: var(--text-sub);
+      font-weight: 600;
+    }
+
+    .reverse-result {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .reverse-result.show { display: flex; }
+
+    .reverse-input-text {
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+
+    .cat-output-text {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--orange);
+      letter-spacing: 0.05em;
+    }
+
+    /* ===== マイクエラー通知 ===== */
+    .mic-error {
+      display: none;
+      align-items: center;
+      gap: 7px;
+      background: #FFF3CD;
+      border: 1px solid #FFE082;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #7B5800;
+      margin-top: 8px;
+    }
+    .mic-error.show { display: flex; }
+
     /* ===== モバイル用翻訳ボタン（デスクトップでは非表示） ===== */
     .sp-translate-btn {
       display: none;
@@ -437,6 +493,9 @@
           <button class="btn btn-icon btn-mic" id="micBtn" onclick="toggleMic()" title="音声入力">🎤</button>
           <button class="btn" onclick="clearAll()">✕ クリア</button>
         </div>
+        <div id="micErrorLeft" class="mic-error">
+          ⚠️ マイクはHTTPS環境（GitHub Pagesなど）でのみ動作します。
+        </div>
         <button class="sp-translate-btn" onclick="doTranslate()">🔄 翻訳する</button>
       </div>
 
@@ -468,6 +527,29 @@
           <button class="btn" id="speakBtn" onclick="speakResult()">🔊 読み上げ</button>
           <button class="btn"               onclick="copyResult()">📋 コピー</button>
         </div>
+
+        <!-- 逆翻訳（人間語→猫語） -->
+        <div class="reverse-section">
+          <div class="reverse-header">
+            <button class="btn btn-icon btn-mic" id="micBtnRight" onclick="toggleMicRight()" title="人間語を話して猫語に変換">🎤</button>
+            <span class="reverse-label">人間語を話す → 猫語に変換</span>
+          </div>
+          <div id="micErrorRight" class="mic-error">
+            ⚠️ マイクはHTTPS環境（GitHub Pagesなど）でのみ動作します。
+          </div>
+          <div class="reverse-result" id="reverseResult">
+            <div class="reverse-input-text" id="reverseInputText"></div>
+            <div class="cat-output-text"    id="catOutputText"></div>
+            <div class="mood-badge show"    id="reverseMoodBadge">
+              <span class="mood-emoji" id="reverseMoodEmoji"></span>
+              <div>
+                <div class="mood-label">🐱 猫の気分</div>
+                <div class="mood-val"  id="reverseMoodVal"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
     </div><!-- /.body -->
@@ -788,13 +870,103 @@ document.getElementById('catInput').addEventListener('keydown', e => {
 });
 
 // ──────────────────────────────────────────────
-// 音声入力
+// 逆翻訳辞書（人間語 → 猫語）
+// ──────────────────────────────────────────────
+const REVERSE_DICT = [
+  {
+    rx: [/ごはん|ご飯|食べ|飯|腹が減|お腹が減|お腹空|腹空/],
+    cat: ["にゃーにゃー！にゃーにゃー！", "ニャーニャーニャー！！", "にゃにゃにゃ！（早く！）"],
+    mood: { e:"😾", t:"要求モード" }
+  },
+  {
+    rx: [/おやつ|チュール|おいし|美味/],
+    cat: ["みゃお！みゃお！みゃお！", "にゃーん！にゃーん！（今すぐ！）", "ミャーオ！ミャーオ！"],
+    mood: { e:"😋", t:"おねだり中" }
+  },
+  {
+    rx: [/なで|撫で|触れ|ふれ|抱っこ|だっこ/],
+    cat: ["ごろごろ〜♪", "ごろごろ… にゃーん", "ゴロゴロゴロゴロ…"],
+    mood: { e:"😸", t:"幸せ" }
+  },
+  {
+    rx: [/かわいい|好き|大好き|愛してる|すき/],
+    cat: ["にゃーん…", "ごろごろ〜 にゃん", "みゃあ… ごろごろ"],
+    mood: { e:"😻", t:"甘えたい" }
+  },
+  {
+    rx: [/だめ|ダメ|やめ|いけない|こら|やめて/],
+    cat: ["シャーッ！", "ふーっ！（知らん）", "ウーッ……（無視します）"],
+    mood: { e:"😾", t:"無視" }
+  },
+  {
+    rx: [/おいで|来て|こっちに|こっちへ/],
+    cat: ["…", "（3秒後に気が向いたら行きます）", "…にゃ。（無視）"],
+    mood: { e:"🐱", t:"気まま" }
+  },
+  {
+    rx: [/トイレ|お手洗い|砂|うんち/],
+    cat: ["にゃ。", "にゃー。（早く掃除してください）"],
+    mood: { e:"🐱", t:"要望あり" }
+  },
+  {
+    rx: [/眠い|眠|寝|おやすみ|ねむ/],
+    cat: ["zzz…", "すやすや…", "zzz… にゃ…（先に寝ます）"],
+    mood: { e:"😴", t:"爆睡予定" }
+  },
+  {
+    rx: [/遊ぼ|遊び|おもちゃ|あそ/],
+    cat: ["みゃ！みゃ！みゃ！", "ニャ！ニャ！（早く出して！）", "にゃにゃ！（早く！）"],
+    mood: { e:"😼", t:"遊びたい" }
+  },
+  {
+    rx: [/帰|ただいま|おかえり/],
+    cat: ["にゃ。（遅い。）", "…にゃ。（気づいてましたけど）", "にゃーん。（待ってた）"],
+    mood: { e:"🐱", t:"平静を装い中" }
+  },
+  {
+    rx: [/痛|いた|病院|獣医/],
+    cat: ["ふーっ！シャーッ！", "にゃーおー！（やめてください）", "ウーッ……（絶対いやです）"],
+    mood: { e:"😾", t:"全力で拒絶" }
+  },
+];
+
+const REVERSE_DEFAULTS = [
+  { cat: "にゃ。", mood: { e:"🐱", t:"ノーコメント" } },
+  { cat: "…にゃ。", mood: { e:"🐱", t:"聞こえてたけど無視" } },
+  { cat: "にゃーん。", mood: { e:"😸", t:"返事だけしておく" } },
+];
+
+function reverseTranslate(input) {
+  for (const entry of REVERSE_DICT) {
+    for (const rx of entry.rx) {
+      if (rx.test(input)) {
+        return { cat: pick(entry.cat), mood: entry.mood };
+      }
+    }
+  }
+  return pick(REVERSE_DEFAULTS);
+}
+
+// ──────────────────────────────────────────────
+// 音声入力ヘルパー
+// ──────────────────────────────────────────────
+function getSR() {
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function showMicError(id) {
+  document.getElementById(id).classList.add('show');
+  setTimeout(() => document.getElementById(id).classList.remove('show'), 5000);
+}
+
+// ──────────────────────────────────────────────
+// 左マイク（猫語 → 人間語）
 // ──────────────────────────────────────────────
 let recog = null, isRec = false;
 
 function toggleMic() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { alert('このブラウザは音声入力に対応していません。\nGoogle Chrome をお試しください。'); return; }
+  const SR = getSR();
+  if (!SR) { showMicError('micErrorLeft'); return; }
 
   if (isRec) { recog.stop(); return; }
 
@@ -816,7 +988,12 @@ function toggleMic() {
     setTimeout(doTranslate, 300);
   };
 
-  recog.onerror = e => console.warn('音声入力エラー:', e.error);
+  recog.onerror = e => {
+    console.warn('音声入力エラー:', e.error);
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      showMicError('micErrorLeft');
+    }
+  };
 
   recog.onend = () => {
     isRec = false;
@@ -826,6 +1003,60 @@ function toggleMic() {
   };
 
   recog.start();
+}
+
+// ──────────────────────────────────────────────
+// 右マイク（人間語 → 猫語）
+// ──────────────────────────────────────────────
+let recogRight = null, isRecRight = false;
+
+function toggleMicRight() {
+  const SR = getSR();
+  if (!SR) { showMicError('micErrorRight'); return; }
+
+  if (isRecRight) { recogRight.stop(); return; }
+
+  recogRight = new SR();
+  recogRight.lang = 'ja-JP';
+  recogRight.continuous = false;
+  recogRight.interimResults = false;
+
+  recogRight.onstart = () => {
+    isRecRight = true;
+    const b = document.getElementById('micBtnRight');
+    b.textContent = '⏹';
+    b.classList.add('active');
+  };
+
+  recogRight.onresult = e => {
+    const spoken = e.results[0][0].transcript;
+    const res    = reverseTranslate(spoken);
+
+    document.getElementById('reverseInputText').textContent = '「' + spoken + '」';
+    document.getElementById('catOutputText').textContent    = res.cat;
+    document.getElementById('reverseMoodEmoji').textContent = res.mood.e;
+    document.getElementById('reverseMoodVal').textContent   = res.mood.t;
+    document.getElementById('reverseResult').classList.add('show');
+
+    // スマホ：人間語タブへ切り替え
+    switchTab('right');
+  };
+
+  recogRight.onerror = e => {
+    console.warn('右マイクエラー:', e.error);
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      showMicError('micErrorRight');
+    }
+  };
+
+  recogRight.onend = () => {
+    isRecRight = false;
+    const b = document.getElementById('micBtnRight');
+    b.textContent = '🎤';
+    b.classList.remove('active');
+  };
+
+  recogRight.start();
 }
 
 // ──────────────────────────────────────────────
