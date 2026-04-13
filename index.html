@@ -325,37 +325,78 @@
       padding: 20px 0 32px;
     }
 
+    /* ===== モバイル用翻訳ボタン（デスクトップでは非表示） ===== */
+    .sp-translate-btn {
+      display: none;
+    }
+
     /* ===== スマホ対応 ===== */
     @media (max-width: 620px) {
-      header { padding: 12px 16px; }
-      .logo  { font-size: 19px; }
-      main   { margin: 14px auto; padding: 0 10px; }
+      header  { padding: 12px 16px; }
+      .logo   { font-size: 19px; }
+      main    { margin: 12px auto; padding: 0; }
 
-      .lang-bar, .body {
-        grid-template-columns: 1fr;
+      /* カードの角丸をなくしてフル幅に */
+      .card   { border-radius: 0; border-left: none; border-right: none; }
+
+      /* ── タブバー ── */
+      .lang-bar {
+        grid-template-columns: 1fr 1fr;
       }
-
       .lang-bar-center { display: none; }
 
-      .lang-tab.right {
-        border-left: none;
-        border-top: 1px solid var(--border);
+      .lang-tab {
+        cursor: pointer;
+        justify-content: center;
+        padding: 14px 10px;
+        transition: color 0.18s, border-color 0.18s;
+        border-bottom: 2px solid transparent;
+        user-select: none;
+      }
+      /* デスクトップの固定スタイルをスマホで上書き */
+      .lang-tab.left  { color: var(--text-sub); border-bottom: 2px solid transparent; }
+      .lang-tab.right { background: var(--bg); border-left: 1px solid var(--border); }
+      .lang-tab.sp-active {
+        color: var(--orange) !important;
+        border-bottom: 2px solid var(--orange) !important;
+        background: var(--bg) !important;
       }
 
-      .center-panel {
-        border-left: none;
-        border-right: none;
-        border-top: 1px solid var(--border);
-        border-bottom: 1px solid var(--border);
-        padding: 14px;
-        flex-direction: row;
-        background: var(--bg-right);
+      /* ── 本体：1カラム、パネルはJS制御で表示/非表示 ── */
+      .body { grid-template-columns: 1fr; }
+      .center-panel { display: none; }
+
+      .left-panel  { display: none; }
+      .right-panel { display: none; background: var(--bg); }
+
+      .left-panel.sp-active  { display: flex; }
+      .right-panel.sp-active { display: flex; }
+
+      textarea     { min-height: 180px; }
+      .result-area { min-height: 160px; }
+
+      /* ── スマホ用「翻訳する」ボタン ── */
+      .sp-translate-btn {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 13px;
+        margin-top: 8px;
+        background: var(--orange);
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+        transition: opacity 0.18s;
       }
+      .sp-translate-btn:active { opacity: 0.8; }
 
-      .right-panel { border-top: 1px solid var(--border); }
-
-      textarea { min-height: 120px; }
-      .result-area { min-height: 100px; }
+      footer { padding: 16px 0 24px; }
     }
   </style>
 </head>
@@ -375,9 +416,9 @@
 
     <!-- 言語ラベル -->
     <div class="lang-bar">
-      <div class="lang-tab left">  <span class="icon">🐾</span> 猫語</div>
+      <div class="lang-tab left"  id="tabLeft"  onclick="switchTab('left')">  <span class="icon">🐾</span> 猫語</div>
       <div class="lang-bar-center"></div>
-      <div class="lang-tab right"> <span class="icon">💬</span> 人間語</div>
+      <div class="lang-tab right" id="tabRight" onclick="switchTab('right')"> <span class="icon">💬</span> 人間語</div>
     </div>
 
     <!-- 本体 -->
@@ -396,6 +437,7 @@
           <button class="btn btn-icon btn-mic" id="micBtn" onclick="toggleMic()" title="音声入力">🎤</button>
           <button class="btn" onclick="clearAll()">✕ クリア</button>
         </div>
+        <button class="sp-translate-btn" onclick="doTranslate()">🔄 翻訳する</button>
       </div>
 
       <!-- 中央：変換ボタン -->
@@ -628,6 +670,52 @@ const EXTRAS = [
   "\n\nこの翻訳に誤りがあっても責任は取れません。"
 ];
 
+// ──────────────────────────────────────────────
+// スマホ タブ切り替え
+// ──────────────────────────────────────────────
+function isMobile() { return window.innerWidth <= 620; }
+
+function switchTab(side) {
+  if (!isMobile()) return;
+
+  const leftPanel  = document.querySelector('.left-panel');
+  const rightPanel = document.querySelector('.right-panel');
+  const tabLeft    = document.getElementById('tabLeft');
+  const tabRight   = document.getElementById('tabRight');
+
+  if (side === 'left') {
+    leftPanel.classList.add('sp-active');
+    rightPanel.classList.remove('sp-active');
+    tabLeft.classList.add('sp-active');
+    tabRight.classList.remove('sp-active');
+  } else {
+    rightPanel.classList.add('sp-active');
+    leftPanel.classList.remove('sp-active');
+    tabRight.classList.add('sp-active');
+    tabLeft.classList.remove('sp-active');
+  }
+}
+
+// 初期表示・リサイズ対応
+function initLayout() {
+  const leftPanel  = document.querySelector('.left-panel');
+  const rightPanel = document.querySelector('.right-panel');
+  if (isMobile()) {
+    // スマホ：猫語タブをデフォルト表示
+    leftPanel.classList.add('sp-active');
+    rightPanel.classList.remove('sp-active');
+    document.getElementById('tabLeft').classList.add('sp-active');
+    document.getElementById('tabRight').classList.remove('sp-active');
+  } else {
+    // デスクトップ：両方表示に戻す
+    leftPanel.classList.add('sp-active');
+    rightPanel.classList.add('sp-active');
+  }
+}
+
+window.addEventListener('resize', initLayout);
+window.addEventListener('DOMContentLoaded', initLayout);
+
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 function translate(input) {
@@ -689,6 +777,8 @@ function doTranslate() {
     document.getElementById('moodVal').textContent   = res.mood.t;
     document.getElementById('moodBadge').classList.add('show');
     document.getElementById('resultToolbar').style.display = '';
+    // スマホ：翻訳後に人間語タブへ自動切り替え
+    switchTab('right');
   }, 550);
 }
 
